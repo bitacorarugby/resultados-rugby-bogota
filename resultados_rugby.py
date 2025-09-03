@@ -75,8 +75,8 @@ for _, row in df_filtered.iterrows():
     visitante_html = f"<b>{row['Visitante']}</b> <img src='{logo_visitante}' width='25' style='vertical-align:middle'>" if logo_visitante else f"<b>{row['Visitante']}</b>"
     marcador_html = f"<span style='background-color:#f0f0f0; padding:5px 10px; border-radius:5px;'>{row['PuntosLocal']} - {row['PuntosVisitante']}</span>"
 
-    # Competición y jornada en texto más pequeño
-    info_html = f"<span class='match-info'>{row['Competicion']} | {row['Jornada']}</span>"
+    # Competición, temporada y jornada
+    info_html = f"<span class='match-info'>{row['Competicion']} | {row['Temporada']} | {row['Jornada']}</span>"
 
     st.markdown(
         f"""
