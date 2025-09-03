@@ -2,17 +2,13 @@ import streamlit as st
 import pandas as pd
 
 # ----------------------------
-# Configuración de URLs
+# URLs
 # ----------------------------
-
-# URL base de la carpeta de logos en tu repo (usar raw)
 LOGO_BASE_URL = "https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/logos/"
-
-# CSV en GitHub (raw)
 CSV_URL = "https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/resultados_bogota.csv"
 
 # ----------------------------
-# Función para cargar CSV
+# Cargar CSV
 # ----------------------------
 @st.cache_data
 def load_data():
@@ -24,20 +20,16 @@ except Exception as e:
     st.error(f"Error al cargar el CSV: {e}")
     st.stop()
 
-# ----------------------------
-# Título
-# ----------------------------
 st.title("🏉 Resultados de Rugby")
 
 # ----------------------------
-# Sidebar con filtros
+# Filtros
 # ----------------------------
 st.sidebar.header("Filtros")
 competicion = st.sidebar.multiselect("Competición", df["Competicion"].unique())
 temporada = st.sidebar.multiselect("Temporada", df["Temporada"].unique())
 jornada = st.sidebar.multiselect("Jornada", df["Jornada"].unique())
 
-# Aplicar filtros
 df_filtered = df.copy()
 if competicion:
     df_filtered = df_filtered[df_filtered["Competicion"].isin(competicion)]
@@ -47,49 +39,64 @@ if jornada:
     df_filtered = df_filtered[df_filtered["Jornada"].isin(jornada)]
 
 # ----------------------------
-# Mostrar resultados con logos
+# Estilos CSS para hover
+# ----------------------------
+st.markdown("""
+<style>
+.match-row {
+    display: flex; 
+    align-items: center; 
+    justify-content: center; 
+    gap: 15px; 
+    font-size: 16px; 
+    margin-bottom:5px; 
+    padding:5px;
+    border-radius:5px;
+    transition: background-color 0.2s ease;
+}
+.match-row:hover {
+    background-color: #f0f8ff;
+}
+.match-info {
+    font-size: 14px; 
+    color: #555;
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ----------------------------
+# Mostrar resultados con hover
 # ----------------------------
 for _, row in df_filtered.iterrows():
-    col1, col2, col3, col4, col5 = st.columns([1, 3, 1, 3, 1])
-
-    # Construir URL del logo local y visitante
     logo_local = f"{LOGO_BASE_URL}{row['Local']}.png"
     logo_visitante = f"{LOGO_BASE_URL}{row['Visitante']}.png"
 
-    # Logo local
-    try:
-        col1.image(logo_local, width=40)
-    except:
-        pass  # Si no existe, deja vacío
+    local_html = f"<img src='{logo_local}' width='25' style='vertical-align:middle'> <b>{row['Local']}</b>" if logo_local else f"<b>{row['Local']}</b>"
+    visitante_html = f"<b>{row['Visitante']}</b> <img src='{logo_visitante}' width='25' style='vertical-align:middle'>" if logo_visitante else f"<b>{row['Visitante']}</b>"
+    marcador_html = f"<span style='background-color:#f0f0f0; padding:5px 10px; border-radius:5px;'>{row['PuntosLocal']} - {row['PuntosVisitante']}</span>"
 
-    # Nombre local
-    col2.markdown(f"**{row['Local']}**")
+    # Competición y jornada en texto más pequeño
+    info_html = f"<span class='match-info'>{row['Competicion']} | {row['Jornada']}</span>"
 
-    # Marcador
-    col3.markdown(f"### {row['PuntosLocal']} - {row['PuntosVisitante']}")
-
-    # Nombre visitante
-    col4.markdown(f"**{row['Visitante']}**")
-
-    # Logo visitante
-    try:
-        col5.image(logo_visitante, width=40)
-    except:
-        pass
-
-    st.divider()
+    st.markdown(
+        f"""
+        <div class='match-row'>
+            {local_html} {marcador_html} {visitante_html} {info_html}
+        </div>
+        """,
+        unsafe_allow_html=True
+    )
+    st.markdown("<hr style='border:0.5px solid #ddd'>", unsafe_allow_html=True)
 
 # ----------------------------
 # Tabla de posiciones
 # ----------------------------
 st.header("📊 Tabla de posiciones")
-
-# Calculamos los puntos por equipo
 tabla = (
     df.groupby("Local")
     .agg({"PuntosLocal": "sum"})
     .rename(columns={"PuntosLocal": "Puntos"})
     .reset_index()
+    .sort_values(by="Puntos", ascending=False)
 )
-
 st.dataframe(tabla, hide_index=True)
