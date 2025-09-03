@@ -1,116 +1,124 @@
 import streamlit as st
 import pandas as pd
 
-st.set_page_config(page_title="Resultados Rugby", layout="wide")
+# ------------------------
+# CONFIG
+# ------------------------
+st.set_page_config(page_title="Resultados Rugby Bogotá", layout="wide")
 
-st.title("🏉 Resultados de Rugby")
+CSV_URL = "https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/refs/heads/main/resultados_bogota.csv"
 
-# --- Cargar CSV desde GitHub (raw) ---
-CSV_URL = "https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/resultados_bogota.csv"
+# Diccionario de logos
+LOGOS = {
+    "Carneros": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Barbarians": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Espartanos": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Petirrojos": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Duendes": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Gatos": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Manoba": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Cachacas": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Jaguares": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Coyotes": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Alianza": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Minotauros": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg",
+    "Zeppelin": "https://upload.wikimedia.org/wikipedia/commons/3/3f/Placeholder_view_vector.svg"
+}
 
-try:
-    df = pd.read_csv(CSV_URL)
-    df.columns = df.columns.str.strip()  # limpiar espacios en encabezados
-except Exception as e:
-    st.error(f"Error al cargar el CSV: {e}")
+# ------------------------
+# Cargar CSV
+# ------------------------
+@st.cache_data
+def load_data():
+    try:
+        df = pd.read_csv(CSV_URL)
+        return df
+    except Exception as e:
+        st.error(f"Error al cargar el CSV: {e}")
+        return pd.DataFrame()
+
+df = load_data()
+
+if df.empty:
     st.stop()
 
-# ----- SIDEBAR -----
-st.sidebar.header("⚙️ Filtros")
+# ------------------------
+# Barra lateral - filtros
+# ------------------------
+st.sidebar.header("Filtros")
+comp = st.sidebar.multiselect("Competición", options=df["Competicion"].unique(), default=df["Competicion"].unique())
+temp = st.sidebar.multiselect("Temporada", options=df["Temporada"].unique(), default=df["Temporada"].unique())
+jor = st.sidebar.multiselect("Jornada", options=df["Jornada"].unique(), default=df["Jornada"].unique())
 
-competiciones = st.sidebar.multiselect("Competición", options=df["Competicion"].unique())
-temporadas = st.sidebar.multiselect("Temporada", options=df["Temporada"].unique())
-jornadas = st.sidebar.multiselect("Jornada", options=df["Jornada"].unique())
-equipos = st.sidebar.multiselect("Equipo", options=pd.concat([df["Local"], df["Visitante"]]).unique())
+df_filtered = df[
+    (df["Competicion"].isin(comp)) &
+    (df["Temporada"].isin(temp)) &
+    (df["Jornada"].isin(jor))
+]
 
-# Aplicar filtros
-if competiciones:
-    df = df[df["Competicion"].isin(competiciones)]
-if temporadas:
-    df = df[df["Temporada"].isin(temporadas)]
-if jornadas:
-    df = df[df["Jornada"].isin(jornadas)]
-if equipos:
-    df = df[(df["Local"].isin(equipos)) | (df["Visitante"].isin(equipos))]
+# ------------------------
+# Mostrar resultados
+# ------------------------
+st.header("📊 Resultados")
 
-# ----- Configuración del sistema de puntos -----
-st.sidebar.header("🏆 Sistema de puntos")
-pts_victoria = st.sidebar.number_input("Puntos por victoria", min_value=0, value=4)
-pts_empate = st.sidebar.number_input("Puntos por empate", min_value=0, value=2)
-pts_derrota = st.sidebar.number_input("Puntos por derrota", min_value=0, value=0)
-bonus_ofensivo = st.sidebar.number_input("Bonus ofensivo (ej: marcar 4 tries)", min_value=0, value=1)
-bonus_defensivo = st.sidebar.number_input("Bonus defensivo (perder por -7)", min_value=0, value=1)
+for _, row in df_filtered.iterrows():
+    col1, col2, col3 = st.columns([1, 2, 1])
 
-# ----- Mostrar Partidos -----
-st.subheader("📋 Partidos filtrados")
+    with col1:
+        st.image(LOGOS.get(row["Local"], ""), width=50)
+    with col2:
+        # Formato compacto en 1 sola línea
+        st.markdown(
+            f"<div style='text-align:center; font-size:18px;'>"
+            f"**{row['Local']} {row['PuntosLocal']} - {row['PuntosVisitante']} {row['Visitante']}**"
+            f"</div>",
+            unsafe_allow_html=True
+        )
+    with col3:
+        st.image(LOGOS.get(row["Visitante"], ""), width=50)
 
-for _, row in df.iterrows():
-    st.markdown(
-        f"""
-        <div style="display:flex; align-items:center; justify-content:center; font-size:18px; margin:6px 0;">
-            <img src="https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/logos/{row['Local']}.png" width="26" style="margin-right:6px;">
-            <b>{row['Local']}</b> {row['PuntosLocal']} - {row['PuntosVisitante']} <b>{row['Visitante']}</b>
-            <img src="https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/logos/{row['Visitante']}.png" width="26" style="margin-left:6px;">
-        </div>
-        <div style="text-align:center; font-size:13px; color:gray;">
-            {row['Competicion']} | {row['Temporada']} | {row['Jornada']}
-        </div>
-        <hr style="border:0.5px solid #ddd; margin:6px 0;">
-        """,
-        unsafe_allow_html=True
-    )
+st.markdown("---")
 
-# ----- Clasificación -----
-st.subheader("🏆 Clasificación")
+# ------------------------
+# Tabla de posiciones
+# ------------------------
+st.header("🏆 Tabla de Posiciones")
 
-equipos_dict = {}
-for _, row in df.iterrows():
-    local, visitante = row["Local"], row["Visitante"]
-    pl, pv = row["PuntosLocal"], row["PuntosVisitante"]
+def calcular_posiciones(data):
+    equipos = {}
+    for _, row in data.iterrows():
+        local, visitante = row["Local"], row["Visitante"]
+        pl, pv = row["PuntosLocal"], row["PuntosVisitante"]
 
-    for eq in [local, visitante]:
-        if eq not in equipos_dict:
-            equipos_dict[eq] = {"PJ":0, "PG":0, "PE":0, "PP":0, "PF":0, "PC":0, "Puntos":0}
+        for eq in [local, visitante]:
+            if eq not in equipos:
+                equipos[eq] = {"PJ": 0, "PG": 0, "PP": 0, "PE": 0, "PF": 0, "PC": 0, "Pts": 0}
 
-    equipos_dict[local]["PJ"] += 1
-    equipos_dict[visitante]["PJ"] += 1
-    equipos_dict[local]["PF"] += pl
-    equipos_dict[local]["PC"] += pv
-    equipos_dict[visitante]["PF"] += pv
-    equipos_dict[visitante]["PC"] += pl
+        equipos[local]["PJ"] += 1
+        equipos[visitante]["PJ"] += 1
+        equipos[local]["PF"] += pl
+        equipos[local]["PC"] += pv
+        equipos[visitante]["PF"] += pv
+        equipos[visitante]["PC"] += pl
 
-    if pl > pv:  # Gana local
-        equipos_dict[local]["PG"] += 1
-        equipos_dict[visitante]["PP"] += 1
-        equipos_dict[local]["Puntos"] += pts_victoria
-        equipos_dict[visitante]["Puntos"] += pts_derrota
-        if (pl - pv) <= 7:
-            equipos_dict[visitante]["Puntos"] += bonus_defensivo
-    elif pv > pl:  # Gana visitante
-        equipos_dict[visitante]["PG"] += 1
-        equipos_dict[local]["PP"] += 1
-        equipos_dict[visitante]["Puntos"] += pts_victoria
-        equipos_dict[local]["Puntos"] += pts_derrota
-        if (pv - pl) <= 7:
-            equipos_dict[local]["Puntos"] += bonus_defensivo
-    else:  # Empate
-        equipos_dict[local]["PE"] += 1
-        equipos_dict[visitante]["PE"] += 1
-        equipos_dict[local]["Puntos"] += pts_empate
-        equipos_dict[visitante]["Puntos"] += pts_empate
+        if pl > pv:
+            equipos[local]["PG"] += 1
+            equipos[visitante]["PP"] += 1
+            equipos[local]["Pts"] += 4
+        elif pl < pv:
+            equipos[visitante]["PG"] += 1
+            equipos[local]["PP"] += 1
+            equipos[visitante]["Pts"] += 4
+        else:
+            equipos[local]["PE"] += 1
+            equipos[visitante]["PE"] += 1
+            equipos[local]["Pts"] += 2
+            equipos[visitante]["Pts"] += 2
 
-clasificacion = pd.DataFrame.from_dict(equipos_dict, orient="index").reset_index()
-clasificacion.rename(columns={"index":"Equipo"}, inplace=True)
-clasificacion["Dif"] = clasificacion["PF"] - clasificacion["PC"]
-clasificacion = clasificacion.sort_values(by=["Puntos","Dif"], ascending=[False, False])
+    tabla = pd.DataFrame.from_dict(equipos, orient="index").reset_index()
+    tabla = tabla.rename(columns={"index": "Equipo"})
+    tabla = tabla.sort_values(by=["Pts", "PG", "PF"], ascending=[False, False, False]).reset_index(drop=True)
+    return tabla
 
-# Agregar logo en la tabla
-def logo_path(equipo):
-    return f"https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/logos/{equipo}.png"
-
-clasificacion["Logo"] = clasificacion["Equipo"].apply(lambda x: f'<img src="{logo_path(x)}" width="26">')
-
-st.write(
-    clasificacion.to_html(escape=False, index=False),
-    unsafe_allow_html=True
-)
+tabla = calcular_posiciones(df)
+st.dataframe(tabla, hide_index=True, use_container_width=True)
