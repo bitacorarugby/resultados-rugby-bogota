@@ -1,151 +1,116 @@
 import streamlit as st
 import pandas as pd
-import os
 
-# --- Configuración de la página ---
 st.set_page_config(page_title="Resultados Rugby", layout="wide")
+
 st.title("🏉 Resultados de Rugby")
 
-# --- Función para cargar CSV desde GitHub ---
-def load_data():
-    url = "https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/refs/heads/main/resultados%20bogota.csv"  # <- pon aquí tu URL raw de GitHub
-    try:
-        df = pd.read_csv(url)
-        df["PuntosLocal"] = df["PuntosLocal"].astype(int)
-        df["PuntosVisitante"] = df["PuntosVisitante"].astype(int)
-        df["Jornada_num"] = df["Jornada"].str.extract("(\d+)").astype(int)
-        return df
-    except Exception as e:
-        st.error(f"Error al cargar el CSV: {e}")
-        return None
+# --- Cargar CSV desde GitHub (raw) ---
+CSV_URL = "https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/resultados_bogota.csv"
 
-df = load_data()
-if df is None:
+try:
+    df = pd.read_csv(CSV_URL)
+    df.columns = df.columns.str.strip()  # limpiar espacios en encabezados
+except Exception as e:
+    st.error(f"Error al cargar el CSV: {e}")
     st.stop()
 
-# --- Sidebar: filtros ---
+# ----- SIDEBAR -----
 st.sidebar.header("⚙️ Filtros")
+
 competiciones = st.sidebar.multiselect("Competición", options=df["Competicion"].unique())
 temporadas = st.sidebar.multiselect("Temporada", options=df["Temporada"].unique())
 jornadas = st.sidebar.multiselect("Jornada", options=df["Jornada"].unique())
 equipos = st.sidebar.multiselect("Equipo", options=pd.concat([df["Local"], df["Visitante"]]).unique())
 
-# --- Sidebar: selección por equipo ---
-st.sidebar.header("🔍 Ver equipo")
-equipo_seleccionado = st.sidebar.selectbox(
-    "Selecciona un equipo",
-    options=[""] + sorted(df["Local"].unique().tolist())
-)
-
-# --- Aplicar filtros ---
-df_filtrado = df.copy()
+# Aplicar filtros
 if competiciones:
-    df_filtrado = df_filtrado[df_filtrado["Competicion"].isin(competiciones)]
+    df = df[df["Competicion"].isin(competiciones)]
 if temporadas:
-    df_filtrado = df_filtrado[df_filtrado["Temporada"].isin(temporadas)]
+    df = df[df["Temporada"].isin(temporadas)]
 if jornadas:
-    df_filtrado = df_filtrado[df_filtrado["Jornada"].isin(jornadas)]
+    df = df[df["Jornada"].isin(jornadas)]
 if equipos:
-    df_filtrado = df_filtrado[(df_filtrado["Local"].isin(equipos)) | (df_filtrado["Visitante"].isin(equipos))]
+    df = df[(df["Local"].isin(equipos)) | (df["Visitante"].isin(equipos))]
 
-# --- Próxima jornada ---
-ultima_jornada_num = df_filtrado["Jornada_num"].max()
-proxima_jornada_num = ultima_jornada_num + 1
-proxima_jornada = df_filtrado[df_filtrado["Jornada_num"] == proxima_jornada_num]
+# ----- Configuración del sistema de puntos -----
+st.sidebar.header("🏆 Sistema de puntos")
+pts_victoria = st.sidebar.number_input("Puntos por victoria", min_value=0, value=4)
+pts_empate = st.sidebar.number_input("Puntos por empate", min_value=0, value=2)
+pts_derrota = st.sidebar.number_input("Puntos por derrota", min_value=0, value=0)
+bonus_ofensivo = st.sidebar.number_input("Bonus ofensivo (ej: marcar 4 tries)", min_value=0, value=1)
+bonus_defensivo = st.sidebar.number_input("Bonus defensivo (perder por -7)", min_value=0, value=1)
 
-# --- Función para mostrar partido ---
-def mostrar_partido(row):
-    col1, col2, col3 = st.columns([3,1,3])
-    with col1:
-        logo_local = f"logos/{row['Local']}.png"
-        if os.path.exists(logo_local):
-            st.image(logo_local, width=50)
-        st.markdown(f"### {row['Local']}")
-    with col2:
-        st.markdown(f"## {row['PuntosLocal']} - {row['PuntosVisitante']}")
-    with col3:
-        logo_visitante = f"logos/{row['Visitante']}.png"
-        if os.path.exists(logo_visitante):
-            st.image(logo_visitante, width=50)
-        st.markdown(f"### {row['Visitante']}")
-    st.caption(f"{row['Competicion']} | {row['Temporada']} | Jornada {row['Jornada']}")
-    st.markdown("---")
+# ----- Mostrar Partidos -----
+st.subheader("📋 Partidos filtrados")
 
-# --- Mostrar próxima jornada ---
-st.subheader("📅 Próxima Fecha")
-if not proxima_jornada.empty:
-    for _, row in proxima_jornada.iterrows():
-        mostrar_partido(row)
-else:
-    st.info("No hay partidos programados para la próxima jornada")
+for _, row in df.iterrows():
+    st.markdown(
+        f"""
+        <div style="display:flex; align-items:center; justify-content:center; font-size:18px; margin:6px 0;">
+            <img src="https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/logos/{row['Local']}.png" width="26" style="margin-right:6px;">
+            <b>{row['Local']}</b> {row['PuntosLocal']} - {row['PuntosVisitante']} <b>{row['Visitante']}</b>
+            <img src="https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/logos/{row['Visitante']}.png" width="26" style="margin-left:6px;">
+        </div>
+        <div style="text-align:center; font-size:13px; color:gray;">
+            {row['Competicion']} | {row['Temporada']} | {row['Jornada']}
+        </div>
+        <hr style="border:0.5px solid #ddd; margin:6px 0;">
+        """,
+        unsafe_allow_html=True
+    )
 
-# --- Mostrar partidos ---
-if not equipo_seleccionado:
-    st.subheader("📋 Partidos")
-    for _, row in df_filtrado.iterrows():
-        mostrar_partido(row)
-else:
-    st.subheader(f"📌 Detalles de {equipo_seleccionado}")
-    partidos_equipo = df_filtrado[
-        (df_filtrado["Local"] == equipo_seleccionado) | (df_filtrado["Visitante"] == equipo_seleccionado)
-    ]
-    for _, row in partidos_equipo.iterrows():
-        mostrar_partido(row)
+# ----- Clasificación -----
+st.subheader("🏆 Clasificación")
 
-# --- Tabla de posiciones con logos ---
-st.subheader("🏆 Tabla de posiciones")
-
-# Calcular clasificación
 equipos_dict = {}
-for _, row in df_filtrado.iterrows():
+for _, row in df.iterrows():
     local, visitante = row["Local"], row["Visitante"]
     pl, pv = row["PuntosLocal"], row["PuntosVisitante"]
+
     for eq in [local, visitante]:
         if eq not in equipos_dict:
             equipos_dict[eq] = {"PJ":0, "PG":0, "PE":0, "PP":0, "PF":0, "PC":0, "Puntos":0}
+
     equipos_dict[local]["PJ"] += 1
     equipos_dict[visitante]["PJ"] += 1
     equipos_dict[local]["PF"] += pl
     equipos_dict[local]["PC"] += pv
     equipos_dict[visitante]["PF"] += pv
     equipos_dict[visitante]["PC"] += pl
-    if pl > pv:
+
+    if pl > pv:  # Gana local
         equipos_dict[local]["PG"] += 1
         equipos_dict[visitante]["PP"] += 1
-        equipos_dict[local]["Puntos"] += 4
-        equipos_dict[visitante]["Puntos"] += 0
+        equipos_dict[local]["Puntos"] += pts_victoria
+        equipos_dict[visitante]["Puntos"] += pts_derrota
         if (pl - pv) <= 7:
-            equipos_dict[visitante]["Puntos"] += 1
-    elif pv > pl:
+            equipos_dict[visitante]["Puntos"] += bonus_defensivo
+    elif pv > pl:  # Gana visitante
         equipos_dict[visitante]["PG"] += 1
         equipos_dict[local]["PP"] += 1
-        equipos_dict[visitante]["Puntos"] += 4
-        equipos_dict[local]["Puntos"] += 0
+        equipos_dict[visitante]["Puntos"] += pts_victoria
+        equipos_dict[local]["Puntos"] += pts_derrota
         if (pv - pl) <= 7:
-            equipos_dict[local]["Puntos"] += 1
-    else:
+            equipos_dict[local]["Puntos"] += bonus_defensivo
+    else:  # Empate
         equipos_dict[local]["PE"] += 1
         equipos_dict[visitante]["PE"] += 1
-        equipos_dict[local]["Puntos"] += 2
-        equipos_dict[visitante]["Puntos"] += 2
+        equipos_dict[local]["Puntos"] += pts_empate
+        equipos_dict[visitante]["Puntos"] += pts_empate
 
 clasificacion = pd.DataFrame.from_dict(equipos_dict, orient="index").reset_index()
 clasificacion.rename(columns={"index":"Equipo"}, inplace=True)
 clasificacion["Dif"] = clasificacion["PF"] - clasificacion["PC"]
 clasificacion = clasificacion.sort_values(by=["Puntos","Dif"], ascending=[False, False])
 
-# --- Generar tabla HTML con logos ---
-html_table = "<table style='width:100%; border-collapse: collapse;'>"
-html_table += "<tr style='background-color:#EEE;'><th>Logo</th><th>Equipo</th><th>PJ</th><th>PG</th><th>PE</th><th>PP</th><th>PF</th><th>PC</th><th>Dif</th><th>Puntos</th></tr>"
+# Agregar logo en la tabla
+def logo_path(equipo):
+    return f"https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/logos/{equipo}.png"
 
-for _, row in clasificacion.iterrows():
-    logo_path = f"logos/{row['Equipo']}.png"
-    if os.path.exists(logo_path):
-        logo_html = f"<img src='{logo_path}' width='30'>"
-    else:
-        logo_html = ""
-    html_table += f"<tr style='text-align:center;'><td>{logo_html}</td><td>{row['Equipo']}</td><td>{row['PJ']}</td><td>{row['PG']}</td><td>{row['PE']}</td><td>{row['PP']}</td><td>{row['PF']}</td><td>{row['PC']}</td><td>{row['Dif']}</td><td>{row['Puntos']}</td></tr>"
+clasificacion["Logo"] = clasificacion["Equipo"].apply(lambda x: f'<img src="{logo_path(x)}" width="26">')
 
-html_table += "</table>"
-
-st.markdown(html_table, unsafe_allow_html=True)
+st.write(
+    clasificacion.to_html(escape=False, index=False),
+    unsafe_allow_html=True
+)
