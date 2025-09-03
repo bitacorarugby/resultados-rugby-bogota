@@ -20,7 +20,7 @@ except Exception as e:
     st.error(f"Error al cargar el CSV: {e}")
     st.stop()
 
-st.title("🏉 Resultados de Rugby")
+st.title("🏉 Resultados - Ligas Nacionales")
 
 # ----------------------------
 # Filtros
