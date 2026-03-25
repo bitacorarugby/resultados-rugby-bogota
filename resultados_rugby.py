@@ -2,101 +2,180 @@ import streamlit as st
 import pandas as pd
 
 # ----------------------------
-# URLs
+# CONFIG
 # ----------------------------
+st.set_page_config(page_title="Resultados Rugby", layout="wide")
+
+EXCEL_URL = "https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/resultados_bogota.xlsx"
 LOGO_BASE_URL = "https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/logos/"
-CSV_URL = "https://raw.githubusercontent.com/bitacorarugby/resultados-rugby-bogota/main/resultados_bogota.csv"
 
 # ----------------------------
-# Cargar CSV
+# LOAD DATA
 # ----------------------------
 @st.cache_data
 def load_data():
-    return pd.read_csv(CSV_URL)
+    df = pd.read_excel(EXCEL_URL)
 
-try:
-    df = load_data()
-except Exception as e:
-    st.error(f"Error al cargar el CSV: {e}")
-    st.stop()
+    # Renombrar columnas para simplificar el código
+    df = df.rename(columns={
+        "Equipo Local": "Local",
+        "Equipo Visitante": "Visitante",
+        "Puntaje Local": "PuntosLocal",
+        "Puntaje Visitante": "PuntosVisitante",
+        "Liga": "Competicion",
+        "Categoria": "Temporada"
+    })
 
-st.title("🏉 Resultados - Ligas Nacionales")
+    return df
+
+df = load_data()
 
 # ----------------------------
-# Filtros
+# SIDEBAR
 # ----------------------------
 st.sidebar.header("Filtros")
-competicion = st.sidebar.multiselect("Competición", df["Competicion"].unique())
-temporada = st.sidebar.multiselect("Temporada", df["Temporada"].unique())
-jornada = st.sidebar.multiselect("Jornada", df["Jornada"].unique())
+
+comp = st.sidebar.multiselect("Liga", df["Competicion"].unique())
+temp = st.sidebar.multiselect("Categoría", df["Temporada"].unique())
+jor = st.sidebar.multiselect("Jornada", df["Jornada"].unique())
 
 df_filtered = df.copy()
-if competicion:
-    df_filtered = df_filtered[df_filtered["Competicion"].isin(competicion)]
-if temporada:
-    df_filtered = df_filtered[df_filtered["Temporada"].isin(temporada)]
-if jornada:
-    df_filtered = df_filtered[df_filtered["Jornada"].isin(jornada)]
+
+if comp:
+    df_filtered = df_filtered[df_filtered["Competicion"].isin(comp)]
+if temp:
+    df_filtered = df_filtered[df_filtered["Temporada"].isin(temp)]
+if jor:
+    df_filtered = df_filtered[df_filtered["Jornada"].isin(jor)]
 
 # ----------------------------
-# Estilos CSS para hover
+# TITLE
+# ----------------------------
+st.title("🏉 Resultados Rugby Bogotá")
+
+# ----------------------------
+# CSS CARDS
 # ----------------------------
 st.markdown("""
 <style>
+.match-card {
+    background-color: white;
+    padding: 12px;
+    border-radius: 10px;
+    margin-bottom: 10px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.08);
+    transition: transform 0.15s ease, box-shadow 0.15s ease;
+}
+
+.match-card:hover {
+    transform: scale(1.01);
+    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
+}
+
 .match-row {
-    display: flex; 
-    align-items: center; 
-    justify-content: center; 
-    gap: 15px; 
-    font-size: 16px; 
-    margin-bottom:5px; 
-    padding:5px;
-    border-radius:5px;
-    transition: background-color 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
 }
-.match-row:hover {
-    background-color: #f0f8ff;
+
+.team {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 600;
 }
+
+.score {
+    background-color: #f0f0f0;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font-weight: bold;
+    font-size: 16px;
+}
+
 .match-info {
-    font-size: 14px; 
-    color: #555;
+    text-align: center;
+    font-size: 13px;
+    color: #666;
+    margin-top: 4px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # ----------------------------
-# Mostrar resultados con hover
+# MATCH CARDS
 # ----------------------------
 for _, row in df_filtered.iterrows():
+
     logo_local = f"{LOGO_BASE_URL}{row['Local']}.png"
     logo_visitante = f"{LOGO_BASE_URL}{row['Visitante']}.png"
 
-    local_html = f"<img src='{logo_local}' width='25' style='vertical-align:middle'> <b>{row['Local']}</b>" if logo_local else f"<b>{row['Local']}</b>"
-    visitante_html = f"<b>{row['Visitante']}</b> <img src='{logo_visitante}' width='25' style='vertical-align:middle'>" if logo_visitante else f"<b>{row['Visitante']}</b>"
-    marcador_html = f"<span style='background-color:#f0f0f0; padding:5px 10px; border-radius:5px;'>{row['PuntosLocal']} - {row['PuntosVisitante']}</span>"
+    st.markdown(f"""
+    <div class="match-card">
+        <div class="match-row">
 
-    # Competición, temporada y jornada
-    info_html = f"<span class='match-info'>{row['Competicion']} | {row['Temporada']} | {row['Jornada']}</span>"
+            <div class="team">
+                <img src="{logo_local}" width="28">
+                {row['Local']}
+            </div>
 
-    st.markdown(
-        f"""
-        <div class='match-row'>
-            {local_html} {marcador_html} {visitante_html} {info_html}
+            <div class="score">
+                {row['PuntosLocal']} - {row['PuntosVisitante']}
+            </div>
+
+            <div class="team">
+                {row['Visitante']}
+                <img src="{logo_visitante}" width="28">
+            </div>
+
         </div>
-        """,
-        unsafe_allow_html=True
-    )
-    st.markdown("<hr style='border:0.5px solid #ddd'>", unsafe_allow_html=True)
+
+        <div class="match-info">
+            {row['Competicion']} | {row['Temporada']} | {row['Jornada']}
+        </div>
+    </div>
+    """, unsafe_allow_html=True)
 
 # ----------------------------
-# Tabla de posiciones
+# TABLA POSICIONES
 # ----------------------------
-st.header("📊 Tabla de posiciones")
-tabla = (
-    df.groupby("Local")
-    .agg({"PuntosLocal": "sum"})
-    .rename(columns={"PuntosLocal": "Puntos"})
-    .reset_index()
-    .sort_values(by="Puntos", ascending=False)
-)
-st.dataframe(tabla, hide_index=True)
+st.header("🏆 Tabla de posiciones")
+
+equipos = {}
+
+for _, row in df.iterrows():
+    local, visitante = row["Local"], row["Visitante"]
+    pl, pv = row["PuntosLocal"], row["PuntosVisitante"]
+
+    for eq in [local, visitante]:
+        if eq not in equipos:
+            equipos[eq] = {"PJ":0, "PG":0, "PP":0, "PF":0, "PC":0, "PTS":0}
+
+    equipos[local]["PJ"] += 1
+    equipos[visitante]["PJ"] += 1
+
+    equipos[local]["PF"] += pl
+    equipos[local]["PC"] += pv
+
+    equipos[visitante]["PF"] += pv
+    equipos[visitante]["PC"] += pl
+
+    if pl > pv:
+        equipos[local]["PG"] += 1
+        equipos[visitante]["PP"] += 1
+        equipos[local]["PTS"] += 4
+    elif pv > pl:
+        equipos[visitante]["PG"] += 1
+        equipos[local]["PP"] += 1
+        equipos[visitante]["PTS"] += 4
+    else:
+        equipos[local]["PTS"] += 2
+        equipos[visitante]["PTS"] += 2
+
+tabla = pd.DataFrame.from_dict(equipos, orient="index").reset_index()
+tabla.rename(columns={"index":"Equipo"}, inplace=True)
+tabla["Dif"] = tabla["PF"] - tabla["PC"]
+
+tabla = tabla.sort_values(by=["PTS","Dif"], ascending=False)
+
+st.dataframe(tabla, use_container_width=True)
